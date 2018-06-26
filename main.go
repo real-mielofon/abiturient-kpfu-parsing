@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	URL_LIST = "https://abiturient.kpfu.ru/entrant/abit_entrant_originals_list?p_open=&p_typeofstudy=1&p_faculty=47&p_speciality=1085&p_inst=0&p_category=1"
+	urlList = "https://abiturient.kpfu.ru/entrant/abit_entrant_originals_list?p_open=&p_typeofstudy=1&p_faculty=47&p_speciality=1085&p_inst=0&p_category=1"
 )
 
 func _check(err error) {
@@ -21,7 +21,7 @@ func _check(err error) {
 
 func main() {
 
-	resp, err := http.Get(URL_LIST)
+	resp, err := http.Get(urlList)
 	if err != nil {
 		fmt.Println("HTTP error:", err)
 		return
@@ -47,6 +47,7 @@ func main() {
 		tds := trs.Eq(i).Find("td")
 		pos, err := strconv.ParseInt(tds.Eq(0).Text(), 10, 64)
 		_check(err)
+
 		fio := tds.Eq(1).Text()
 
 		points, err := strconv.ParseInt(tds.Eq(6).Text(), 10, 64)
