@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"html/template"
@@ -19,8 +20,8 @@ import (
 const (
 	urlList            = "https://abiturient.kpfu.ru/entrant/abit_entrant_originals_list?p_open=&p_typeofstudy=1&p_faculty=47&p_speciality=1085&p_inst=0&p_category=1"
 	nameFindAbiturient = "Пономарев Степан Алексеевич"
-	periodUpdate = 2*time.Minute
-	fileConfig = "./data/subscribe.txt"
+	periodUpdate       = 2 * time.Minute
+	fileConfig         = "./data/subscribe.txt"
 )
 
 func _check(err error) {
@@ -229,36 +230,115 @@ func tgBotCommandStat(bot *telegram.Bot, messageChatID int64) {
 	}
 }
 
+type ConfigType struct {
+	chats map[int64]int
+	status StatusAbiturienta
+}
 
-func ReadConfig() ([]int64, error)  {
+func (c *ConfigType) ReadConfig() error {
+	c.chats = make(map[int64]int)
+
 	file, err := os.Open(fileConfig)
-    if err != nil {
-		log.Fatal(err)
-		return nil, err
-    }
-    defer file.Close()
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	defer file.Close()
 
-
-    scanner := bufio.NewScanner(file)
-    if scanner.Scan() {
-		len := scanner.int64() 
-		arr := make([]int64, len)
-
+	scanner := bufio.NewScanner(file)
+	if scanner.Scan() {
+		n, err := strconv.ParseInt(scanner.Text(), 10, 32)
+		if err != nil {
+			return err
+		}
+		len := int(n)
 		for i := 0; i < len; i++ {
 			if scanner.Scan() {
-				arr[i] = scanner.int64() 
-			} 
+				n, err := strconv.ParseInt(scanner.Text(), 10, 32)
+				if err != nil {
+					return err
+				}
+				c.chats[n] = 0
+			}
 		}
-		return arr, nil
+		return nil
 	} else {
-		scanner.Error
-		return nil, err
+		return scanner.Err()
+	}
+}
+func (c *ConfigType) WriteConfig() error {
+	
+	file, _ := os.OpenFile(fileConfig, os.O_WRONLY, 0666)
+//    if err != nil {
+        //log.Fatal(err)
+		//return err
+    //}
+	defer file.Close()
+		
+	writer := bufio.NewWriter(file)
+	writer.WriteString(strconv.Itoa(len(c.chats)))
+	for key, _ := range c.chats {
+		writer.WriteString(strconv.FormatInt(key, 10))
+	}
+	return nil
+}
+
+func (c *ConfigType) Add(key int64) {
+	c.chats[key] = 0
+}
+
+func tgBotCommandSubscribe(bot *telegram.Bot, config *ConfigType, messageChatID int64) {
+
+	config.Add(messageChatID)
+	config.WriteConfig()
+
+	text := "Subscribed"
+	msg := telegram.NewMessage(messageChatID, text)
+	msg.ParseMode = "html"
+	//			msg.ReplyToMessageID = update.Message.ID
+
+	_, err := bot.SendMessage(msg)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func tgBotCommandUnSubscribe(bot *telegram.Bot, config *ConfigType, messageChatID int64) {
+
+	delete(config.chats, messageChatID)
+	config.WriteConfig()
+
+	text := "UnSubscribed"
+	msg := telegram.NewMessage(messageChatID, text)
+	msg.ParseMode = "html"
+	//			msg.ReplyToMessageID = update.Message.ID
+
+	_, err := bot.SendMessage(msg)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func tgBotCommandSendChangeStatus(bot *telegram.Bot, config *ConfigType) {
+	for key, _ := range config.chats {
+		text := "Change"
+		msg := telegram.NewMessage(key, text)
+		msg.ParseMode = "html"
+		//			msg.ReplyToMessageID = update.Message.ID
+
+		_, err := bot.SendMessage(msg)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 }
 
 func main() {
 
 	env := os.Getenv("TGBOT_KEY")
+
+	config := new(ConfigType)
+	config.ReadConfig()
 
 	bot, err := telegram.New(env)
 	if err != nil {
@@ -280,37 +360,36 @@ func main() {
 	ticker := time.NewTicker(periodUpdate)
 	for {
 		select {
-		case update := <- updates:
+		case update := <-updates:
 			if update.Message == nil {
 				continue
 				log.Printf("Out message nil")
 			}
-	
+
 			messageText := update.Message.Text
 			messageUserName := update.Message.From.Username
 			messageChatID := update.Message.Chat.ID
 
-			update.Message
-	
 			log.Printf("In  [%s] id:%d %s", messageUserName, messageChatID, messageText)
-	
-			switch  {
-			case (messageText =="/list") || (messageText =="/l") :
+
+			switch {
+			case (messageText == "/list") || (messageText == "/l"):
 				tgBotCommandList(bot, messageChatID)
 				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
-			case (messageText =="/status") || (messageText =="/s") :
+			case (messageText == "/status") || (messageText == "/s"):
 				tgBotCommandStat(bot, messageChatID)
+				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+			case (messageText == "/subscribe") || (messageText == "/sub"):
+				tgBotCommandSubscribe(bot, config, messageChatID)
+				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+			case (messageText == "/unsubscribe") || (messageText == "/uns"):
+				tgBotCommandUnSubscribe(bot, config, messageChatID)
 				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			default:
 				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			}
-		case t := <- ticker.C:
-			bot. 
-	
+		case <-ticker.C:
+			tgBotCommandSendChangeStatus(bot, config)
 		}
-	}
-
-	for update := range updates {
-
 	}
 }
