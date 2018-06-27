@@ -1,11 +1,13 @@
 package main
 
 import (
-	"os"
-	"time"
+	"bytes"
 	"fmt"
+	"html/template"
 	"net/http"
+	"os"
 	"strconv"
+	"time"
 
 	"log"
 
@@ -24,15 +26,17 @@ func _check(err error) {
 	}
 }
 
+//Abiturient is struct data of abiturient
 type Abiturient struct {
-	Num    int
-	Fio    string
-	Points [5]int
+	Num      int
+	Fio      string
+	Points   [5]int
+	Original bool
 }
 
 func getListAbiturient() ([]Abiturient, error) {
 	var cl = &http.Client{}
-	cl.Timeout = 60*time.Second
+	cl.Timeout = 60 * time.Second
 
 	resp, err := cl.Get(urlList)
 	if err != nil {
@@ -62,8 +66,16 @@ func getListAbiturient() ([]Abiturient, error) {
 
 	fmt.Printf("len: %+v \n", len)
 	for i := 1; i < len; i++ {
-		tds := trs.Eq(i).Find("td")
+
+		tr := trs.Eq(i)
+		tds := tr.Find("td")
 		var ab Abiturient
+
+		if style, styleExist := tr.Attr("style"); styleExist {
+			ab.Original = (style == "font-weight:bold;")
+		} else {
+			ab.Original = false
+		}
 
 		s := tds.Eq(0).Text()
 		num, err := strconv.ParseInt(s, 10, 32)
@@ -111,14 +123,14 @@ func getListAbiturient() ([]Abiturient, error) {
 		num, err = strconv.ParseInt(tds.Eq(6).Text(), 10, 32)
 		if err != nil {
 			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
-			ab.Points[4] = ab.Points[0] + ab.Points[1] + ab.Points[2]+ ab.Points[3]
+			ab.Points[4] = ab.Points[0] + ab.Points[1] + ab.Points[2] + ab.Points[3]
 		} else {
 			ab.Points[4] = int(num)
 		}
 
 		arr[i-1] = ab
 
-		log.Printf("%4d %40s %3d\n", ab.Num, ab.Fio, ab.Points[3])
+		log.Printf("%4d %40s %3d %s\n", ab.Num, ab.Fio, ab.Points[4], strconv.FormatBool(ab.Original))
 	}
 	return arr, nil
 }
@@ -149,21 +161,38 @@ func main() {
 		log.Printf("[%s] %s", update.Message.From.Username, update.Message.Text)
 		switch update.Message.Text {
 		case "/list":
-			text := ""
-
 			arr, err := getListAbiturient()
 			if err != nil {
 				log.Printf("Error!!!: %v", err)
-				text = fmt.Sprintf("Error!!!: %v", err)
-			}
-			for _, ab := range arr {
-				text = text + fmt.Sprintf("%4d %40s %3d\n", ab.Num, ab.Fio, ab.Points[4])
 			}
 
-			msg := telegram.NewMessage(update.Message.Chat.ID, text)
-			msg.ReplyToMessageID = update.Message.ID
+			t := template.New("fieldname example")
+			t, err = t.Parse(`{{range .}}<pre>{{if eq .Fio "Пономарев Степан Алексеевич"}}>>>{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}{{printf "%3d" .Num}} {{printf "%40s" .Fio}} {{index .Points 4|printf "%3d"}}{{if eq .Fio "Пономарев Степан Алексеевич"}}<<<{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}</pre>{{printf "\n"}}{{end}}`)
+			if err != nil {
+				log.Panic(err)
+			}
 
-			bot.SendMessage(msg)
+			for inter := 0; inter < len(arr)/20+1; inter++ {
+				var b bytes.Buffer
+				last := inter*20 + 20
+				if last >= len(arr) {
+					last = len(arr)
+				}
+				err = t.Execute(&b, arr[inter*20:last])
+				if err != nil {
+					log.Panic(err)
+				}
+
+				text := b.String()
+				msg := telegram.NewMessage(update.Message.Chat.ID, text)
+				msg.ParseMode = "html"
+				msg.ReplyToMessageID = update.Message.ID
+
+				_, err := bot.SendMessage(msg)
+				if err != nil {
+					log.Panic(err)
+				}
+			}
 		}
 	}
 }
