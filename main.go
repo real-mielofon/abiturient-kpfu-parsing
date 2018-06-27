@@ -46,7 +46,7 @@ func getStatusAbiturient() (*StatusAbiturienta, error) {
 	if err != nil {
 		return nil, err
 	}
-	var status StatusAbiturienta = StatusAbiturienta{Num: 0, NumWithOriginal: 0}
+	status := StatusAbiturienta{Num: 0, NumWithOriginal: 0}
 	for _, ab := range arr {
 		if ab.Fio == nameFindAbiturient {
 			status.NumWithOriginal++
