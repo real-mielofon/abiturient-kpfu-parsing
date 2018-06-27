@@ -19,6 +19,8 @@ import (
 const (
 	urlList            = "https://abiturient.kpfu.ru/entrant/abit_entrant_originals_list?p_open=&p_typeofstudy=1&p_faculty=47&p_speciality=1085&p_inst=0&p_category=1"
 	nameFindAbiturient = "Пономарев Степан Алексеевич"
+	periodUpdate = 2*time.Minute
+	fileConfig = "./data/subscribe.txt"
 )
 
 func _check(err error) {
@@ -227,6 +229,33 @@ func tgBotCommandStat(bot *telegram.Bot, messageChatID int64) {
 	}
 }
 
+
+func ReadConfig() ([]int64, error)  {
+	file, err := os.Open(fileConfig)
+    if err != nil {
+		log.Fatal(err)
+		return nil, err
+    }
+    defer file.Close()
+
+
+    scanner := bufio.NewScanner(file)
+    if scanner.Scan() {
+		len := scanner.int64() 
+		arr := make([]int64, len)
+
+		for i := 0; i < len; i++ {
+			if scanner.Scan() {
+				arr[i] = scanner.int64() 
+			} 
+		}
+		return arr, nil
+	} else {
+		scanner.Error
+		return nil, err
+	}
+}
+
 func main() {
 
 	env := os.Getenv("TGBOT_KEY")
@@ -248,30 +277,40 @@ func main() {
 
 	updates := bot.NewLongPollingChannel(updatesParameters)
 
+	ticker := time.NewTicker(periodUpdate)
+	for {
+		select {
+		case update := <- updates:
+			if update.Message == nil {
+				continue
+				log.Printf("Out message nil")
+			}
+	
+			messageText := update.Message.Text
+			messageUserName := update.Message.From.Username
+			messageChatID := update.Message.Chat.ID
+
+			update.Message
+	
+			log.Printf("In  [%s] id:%d %s", messageUserName, messageChatID, messageText)
+	
+			switch  {
+			case (messageText =="/list") || (messageText =="/l") :
+				tgBotCommandList(bot, messageChatID)
+				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+			case (messageText =="/status") || (messageText =="/s") :
+				tgBotCommandStat(bot, messageChatID)
+				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+			default:
+				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+			}
+		case t := <- ticker.C:
+			bot. 
+	
+		}
+	}
+
 	for update := range updates {
-		if update.Message == nil {
-			continue
-			log.Printf("Out message nil")
-		}
-
-		messageText := update.Message.Text
-		messageUserName := update.Message.From.Username
-		messageChatID := update.Message.Chat.ID
-
-		log.Printf("In  [%s] id:%d %s", messageUserName, messageChatID, messageText)
-
-		switch messageText {
-		case "/list":
-		case "/l":
-			tgBotCommandList(bot, messageChatID)
-			log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
-		case "/status":
-		case "/s":
-			tgBotCommandStat(bot, messageChatID)
-			log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
-		default:
-			log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
-		}
 
 	}
 }
