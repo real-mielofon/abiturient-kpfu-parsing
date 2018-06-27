@@ -90,7 +90,7 @@ func getListAbiturient() ([]Abiturient, error) {
 	len := trs.Length()
 	arr := make([]Abiturient, len-1)
 
-	fmt.Printf("len: %+v \n", len)
+	//	fmt.Printf("len: %+v \n", len)
 	for i := 1; i < len; i++ {
 
 		tr := trs.Eq(i)
@@ -116,7 +116,7 @@ func getListAbiturient() ([]Abiturient, error) {
 		s = tds.Eq(2).Text()
 		num, err = strconv.ParseInt(s, 10, 32)
 		if err != nil {
-			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
+			//			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
 			ab.Points[0] = 0
 		} else {
 			ab.Points[0] = int(num)
@@ -124,7 +124,7 @@ func getListAbiturient() ([]Abiturient, error) {
 
 		num, err = strconv.ParseInt(tds.Eq(3).Text(), 10, 32)
 		if err != nil {
-			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
+			//			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
 			ab.Points[1] = 0
 		} else {
 			ab.Points[1] = int(num)
@@ -132,7 +132,7 @@ func getListAbiturient() ([]Abiturient, error) {
 
 		num, err = strconv.ParseInt(tds.Eq(4).Text(), 10, 32)
 		if err != nil {
-			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
+			//			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
 			ab.Points[2] = 0
 		} else {
 			ab.Points[2] = int(num)
@@ -140,7 +140,7 @@ func getListAbiturient() ([]Abiturient, error) {
 
 		num, err = strconv.ParseInt(tds.Eq(5).Text(), 10, 32)
 		if err != nil {
-			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
+			//			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
 			ab.Points[3] = 0
 		} else {
 			ab.Points[3] = int(num)
@@ -148,7 +148,7 @@ func getListAbiturient() ([]Abiturient, error) {
 
 		num, err = strconv.ParseInt(tds.Eq(6).Text(), 10, 32)
 		if err != nil {
-			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
+			//			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
 			ab.Points[4] = ab.Points[0] + ab.Points[1] + ab.Points[2] + ab.Points[3]
 		} else {
 			ab.Points[4] = int(num)
@@ -156,9 +156,75 @@ func getListAbiturient() ([]Abiturient, error) {
 
 		arr[i-1] = ab
 
-		log.Printf("%4d %40s %3d %s\n", ab.Num, ab.Fio, ab.Points[4], strconv.FormatBool(ab.Original))
+		//		log.Printf("%4d %40s %3d %s\n", ab.Num, ab.Fio, ab.Points[4], strconv.FormatBool(ab.Original))
 	}
 	return arr, nil
+}
+
+func tgBotCommandList(bot *telegram.Bot, messageChatID int64) {
+	arr, err := getListAbiturient()
+	if err != nil {
+		log.Printf("Error!!!: %v", err)
+	}
+
+	t := template.New("abiturients list")
+
+	t, err = t.Parse(`{{range .}}<pre>{{if eq .Fio "` + nameFindAbiturient + `"}}>>>{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}{{printf "%3d" .Num}} {{printf "%40s" .Fio}} {{index .Points 4|printf "%3d"}}{{if eq .Fio "` + nameFindAbiturient + `"}}<<<{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}</pre>{{printf "\n"}}{{end}}`)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	for inter := 0; inter < len(arr)/20+1; inter++ {
+		var b bytes.Buffer
+		last := inter*20 + 20
+		if last >= len(arr) {
+			last = len(arr)
+		}
+		err = t.Execute(&b, arr[inter*20:last])
+		if err != nil {
+			log.Panic(err)
+		}
+
+		text := b.String()
+		msg := telegram.NewMessage(messageChatID, text)
+		msg.ParseMode = "html"
+		//				msg.ReplyToMessageID = update.Message.ID
+
+		_, err := bot.SendMessage(msg)
+		if err != nil {
+			log.Panic(err)
+		}
+	}
+}
+
+func tgBotCommandStat(bot *telegram.Bot, messageChatID int64) {
+	status, err := getStatusAbiturient()
+	if err != nil {
+		log.Printf("Error getStatus!!!: %v", err)
+	}
+
+	t := template.New("abiturients status")
+
+	t, err = t.Parse(`Абитуриент ` + nameFindAbiturient + ` Персональный рейтинг: {{.Num}}  Персональный рейтинг по оригиналам: {{.NumWithOriginal}}`)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	var b bytes.Buffer
+	err = t.Execute(&b, status)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	text := b.String()
+	msg := telegram.NewMessage(messageChatID, text)
+	msg.ParseMode = "html"
+	//			msg.ReplyToMessageID = update.Message.ID
+
+	_, err = bot.SendMessage(msg)
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 func main() {
@@ -174,83 +240,38 @@ func main() {
 
 	log.Printf("Authorized on account %s", bot.Username)
 
-	var updatesParameters telegram.GetUpdatesParameters
-	updatesParameters.Timeout = 60
+	updatesParameters := &telegram.GetUpdatesParameters{
+		Offset:  0,
+		Limit:   100,
+		Timeout: 120,
+	}
 
-	updates := bot.NewLongPollingChannel(&updatesParameters)
+	updates := bot.NewLongPollingChannel(updatesParameters)
 
 	for update := range updates {
 		if update.Message == nil {
 			continue
+			log.Printf("Out message nil")
 		}
 
-		log.Printf("[%s] %s", update.Message.From.Username, update.Message.Text)
-		switch update.Message.Text {
+		messageText := update.Message.Text
+		messageUserName := update.Message.From.Username
+		messageChatID := update.Message.Chat.ID
+
+		log.Printf("In  [%s] id:%d %s", messageUserName, messageChatID, messageText)
+
+		switch messageText {
 		case "/list":
 		case "/l":
-			arr, err := getListAbiturient()
-			if err != nil {
-				log.Printf("Error!!!: %v", err)
-			}
-
-			t := template.New("abiturients list")
-
-			t, err = t.Parse(`{{range .}}<pre>{{if eq .Fio "` + nameFindAbiturient + `"}}>>>{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}{{printf "%3d" .Num}} {{printf "%40s" .Fio}} {{index .Points 4|printf "%3d"}}{{if eq .Fio "` + nameFindAbiturient + `"}}<<<{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}</pre>{{printf "\n"}}{{end}}`)
-			if err != nil {
-				log.Panic(err)
-			}
-
-			for inter := 0; inter < len(arr)/20+1; inter++ {
-				var b bytes.Buffer
-				last := inter*20 + 20
-				if last >= len(arr) {
-					last = len(arr)
-				}
-				err = t.Execute(&b, arr[inter*20:last])
-				if err != nil {
-					log.Panic(err)
-				}
-
-				text := b.String()
-				msg := telegram.NewMessage(update.Message.Chat.ID, text)
-				msg.ParseMode = "html"
-				msg.ReplyToMessageID = update.Message.ID
-
-				_, err := bot.SendMessage(msg)
-				if err != nil {
-					log.Panic(err)
-				}
-			}
+			tgBotCommandList(bot, messageChatID)
+			log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 		case "/status":
 		case "/s":
-			status, err := getStatusAbiturient()
-			if err != nil {
-				log.Printf("Error getStatus!!!: %v", err)
-			}
-
-			t := template.New("abiturients status")
-
-			t, err = t.Parse(`Абитуриент ` + nameFindAbiturient + ` Персональный рейтинг: {{.Num}}  Персональный рейтинг по оригиналам: {{.NumWithOriginal}}`)
-			if err != nil {
-				log.Panic(err)
-			}
-
-			var b bytes.Buffer
-			err = t.Execute(&b, status)
-			if err != nil {
-				log.Panic(err)
-			}
-
-			text := b.String()
-			msg := telegram.NewMessage(update.Message.Chat.ID, text)
-			msg.ParseMode = "html"
-			msg.ReplyToMessageID = update.Message.ID
-
-			_, err = bot.SendMessage(msg)
-			if err != nil {
-				log.Panic(err)
-			}
-
+			tgBotCommandStat(bot, messageChatID)
+			log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+		default:
+			log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 		}
+
 	}
 }
