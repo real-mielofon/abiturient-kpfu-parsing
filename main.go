@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	urlList = "https://abiturient.kpfu.ru/entrant/abit_entrant_originals_list?p_open=&p_typeofstudy=1&p_faculty=47&p_speciality=1085&p_inst=0&p_category=1"
+	urlList            = "https://abiturient.kpfu.ru/entrant/abit_entrant_originals_list?p_open=&p_typeofstudy=1&p_faculty=47&p_speciality=1085&p_inst=0&p_category=1"
+	nameFindAbiturient = "Пономарев Степан Алексеевич"
 )
 
 func _check(err error) {
@@ -32,6 +33,31 @@ type Abiturient struct {
 	Fio      string
 	Points   [5]int
 	Original bool
+}
+
+// StatusAbiturienta is position abiturient in list
+type StatusAbiturienta struct {
+	Num             int
+	NumWithOriginal int
+}
+
+func getStatusAbiturient() (*StatusAbiturienta, error) {
+	arr, err := getListAbiturient()
+	if err != nil {
+		return nil, err
+	}
+	var status StatusAbiturienta = StatusAbiturienta{Num: 0, NumWithOriginal: 0}
+	for _, ab := range arr {
+		if ab.Fio == nameFindAbiturient {
+			status.NumWithOriginal++
+			status.Num = ab.Num
+			break
+		}
+		if ab.Original {
+			status.NumWithOriginal++
+		}
+	}
+	return &status, nil
 }
 
 func getListAbiturient() ([]Abiturient, error) {
@@ -161,13 +187,15 @@ func main() {
 		log.Printf("[%s] %s", update.Message.From.Username, update.Message.Text)
 		switch update.Message.Text {
 		case "/list":
+		case "/l":
 			arr, err := getListAbiturient()
 			if err != nil {
 				log.Printf("Error!!!: %v", err)
 			}
 
-			t := template.New("fieldname example")
-			t, err = t.Parse(`{{range .}}<pre>{{if eq .Fio "Пономарев Степан Алексеевич"}}>>>{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}{{printf "%3d" .Num}} {{printf "%40s" .Fio}} {{index .Points 4|printf "%3d"}}{{if eq .Fio "Пономарев Степан Алексеевич"}}<<<{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}</pre>{{printf "\n"}}{{end}}`)
+			t := template.New("abiturients list")
+
+			t, err = t.Parse(`{{range .}}<pre>{{if eq .Fio "` + nameFindAbiturient + `"}}>>>{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}{{printf "%3d" .Num}} {{printf "%40s" .Fio}} {{index .Points 4|printf "%3d"}}{{if eq .Fio "` + nameFindAbiturient + `"}}<<<{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}</pre>{{printf "\n"}}{{end}}`)
 			if err != nil {
 				log.Panic(err)
 			}
@@ -193,6 +221,36 @@ func main() {
 					log.Panic(err)
 				}
 			}
+		case "/status":
+		case "/s":
+			status, err := getStatusAbiturient()
+			if err != nil {
+				log.Printf("Error getStatus!!!: %v", err)
+			}
+
+			t := template.New("abiturients status")
+
+			t, err = t.Parse(`Абитуриент ` + nameFindAbiturient + ` Персональный рейтинг: {{.Num}}  Персональный рейтинг по оригиналам: {{.NumWithOriginal}}`)
+			if err != nil {
+				log.Panic(err)
+			}
+
+			var b bytes.Buffer
+			err = t.Execute(&b, status)
+			if err != nil {
+				log.Panic(err)
+			}
+
+			text := b.String()
+			msg := telegram.NewMessage(update.Message.Chat.ID, text)
+			msg.ParseMode = "html"
+			msg.ReplyToMessageID = update.Message.ID
+
+			_, err = bot.SendMessage(msg)
+			if err != nil {
+				log.Panic(err)
+			}
+
 		}
 	}
 }
