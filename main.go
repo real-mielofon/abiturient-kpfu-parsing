@@ -19,7 +19,7 @@ import (
 const (
 	urlList            = "https://abiturient.kpfu.ru/entrant/abit_entrant_originals_list?p_open=&p_typeofstudy=1&p_faculty=47&p_speciality=1085&p_inst=0&p_category=1"
 	nameFindAbiturient = "Пономарев Степан Алексеевич"
-	periodUpdate       = 2 * time.Minute
+	periodUpdate       = 10 * time.Minute
 	fileConfig         = "./data/subscribe.txt"
 )
 
@@ -199,15 +199,19 @@ func tgBotCommandList(bot *telegram.Bot, messageChatID int64) {
 	}
 }
 
-func tgBotCommandStat(bot *telegram.Bot, messageChatID int64) {
+func tgBotCommandStatWithGetStatus(bot *telegram.Bot, messageChatID int64) {
 	status, err := getStatusAbiturient()
 	if err != nil {
 		log.Printf("Error getStatus!!!: %v", err)
 	}
+	tgBotCommandStat(bot, messageChatID, status)
+}
+
+func tgBotCommandStat(bot *telegram.Bot, messageChatID int64, status *StatusAbiturienta) {
 
 	t := template.New("abiturients status")
 
-	t, err = t.Parse(`Абитуриент ` + nameFindAbiturient + `\nПерсональный рейтинг: {{.Num}}\nПерсональный рейтинг по оригиналам: {{.NumWithOriginal}}`)
+	t, err := t.Parse("Абитуриент *" + nameFindAbiturient + "*\nПерсональный рейтинг: *{{.Num}}*\nПерсональный рейтинг по оригиналам: *{{.NumWithOriginal}}*")
 	if err != nil {
 		log.Panic(err)
 	}
@@ -220,7 +224,7 @@ func tgBotCommandStat(bot *telegram.Bot, messageChatID int64) {
 
 	text := b.String()
 	msg := telegram.NewMessage(messageChatID, text)
-	msg.ParseMode = "html"
+	msg.ParseMode = "markdown"
 	//			msg.ReplyToMessageID = update.Message.ID
 
 	_, err = bot.SendMessage(msg)
@@ -262,16 +266,21 @@ func tgBotCommandUnSubscribe(bot *telegram.Bot, config *ConfigType, messageChatI
 }
 
 func tgBotCommandSendChangeStatus(bot *telegram.Bot, config *ConfigType) {
-	for key := range config.chats {
-		text := "Change"
-		msg := telegram.NewMessage(key, text)
-		msg.ParseMode = "html"
-		//			msg.ReplyToMessageID = update.Message.ID
+	status, err := getStatusAbiturient()
+	if err != nil {
+		log.Printf("Error getStatus!!!: %v", err)
+	}
+	if (status.Num == config.status.Num) && (status.NumWithOriginal == config.status.NumWithOriginal) {
+		// no change exit
+		return
+	}
 
-		_, err := bot.SendMessage(msg)
-		if err != nil {
-			log.Panic(err)
-		}
+	config.status.Num = status.Num
+	config.status.NumWithOriginal = status.NumWithOriginal
+	config.WriteConfig()
+
+	for key := range config.chats {
+		tgBotCommandStat(bot, key, status)
 	}
 }
 
@@ -319,7 +328,7 @@ func main() {
 				tgBotCommandList(bot, messageChatID)
 				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			case (messageText == "/status") || (messageText == "/s"):
-				tgBotCommandStat(bot, messageChatID)
+				tgBotCommandStatWithGetStatus(bot, messageChatID)
 				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			case (messageText == "/subscribe") || (messageText == "/sub"):
 				tgBotCommandSubscribe(bot, config, messageChatID)
@@ -332,6 +341,7 @@ func main() {
 			}
 		case <-ticker.C:
 			tgBotCommandSendChangeStatus(bot, config)
+			log.Printf("Out Change Ok")
 		}
 	}
 }
