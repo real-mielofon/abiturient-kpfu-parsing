@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"html/template"
@@ -208,7 +207,7 @@ func tgBotCommandStat(bot *telegram.Bot, messageChatID int64) {
 
 	t := template.New("abiturients status")
 
-	t, err = t.Parse(`Абитуриент ` + nameFindAbiturient + ` Персональный рейтинг: {{.Num}}  Персональный рейтинг по оригиналам: {{.NumWithOriginal}}`)
+	t, err = t.Parse(`Абитуриент ` + nameFindAbiturient + `\nПерсональный рейтинг: {{.Num}}\nПерсональный рейтинг по оригиналам: {{.NumWithOriginal}}`)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -228,63 +227,6 @@ func tgBotCommandStat(bot *telegram.Bot, messageChatID int64) {
 	if err != nil {
 		log.Panic(err)
 	}
-}
-
-type ConfigType struct {
-	chats map[int64]int
-	status StatusAbiturienta
-}
-
-func (c *ConfigType) ReadConfig() error {
-	c.chats = make(map[int64]int)
-
-	file, err := os.Open(fileConfig)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	if scanner.Scan() {
-		n, err := strconv.ParseInt(scanner.Text(), 10, 32)
-		if err != nil {
-			return err
-		}
-		len := int(n)
-		for i := 0; i < len; i++ {
-			if scanner.Scan() {
-				n, err := strconv.ParseInt(scanner.Text(), 10, 32)
-				if err != nil {
-					return err
-				}
-				c.chats[n] = 0
-			}
-		}
-		return nil
-	} else {
-		return scanner.Err()
-	}
-}
-func (c *ConfigType) WriteConfig() error {
-	
-	file, _ := os.OpenFile(fileConfig, os.O_WRONLY, 0666)
-//    if err != nil {
-        //log.Fatal(err)
-		//return err
-    //}
-	defer file.Close()
-		
-	writer := bufio.NewWriter(file)
-	writer.WriteString(strconv.Itoa(len(c.chats)))
-	for key, _ := range c.chats {
-		writer.WriteString(strconv.FormatInt(key, 10))
-	}
-	return nil
-}
-
-func (c *ConfigType) Add(key int64) {
-	c.chats[key] = 0
 }
 
 func tgBotCommandSubscribe(bot *telegram.Bot, config *ConfigType, messageChatID int64) {
@@ -320,7 +262,7 @@ func tgBotCommandUnSubscribe(bot *telegram.Bot, config *ConfigType, messageChatI
 }
 
 func tgBotCommandSendChangeStatus(bot *telegram.Bot, config *ConfigType) {
-	for key, _ := range config.chats {
+	for key := range config.chats {
 		text := "Change"
 		msg := telegram.NewMessage(key, text)
 		msg.ParseMode = "html"
@@ -362,8 +304,8 @@ func main() {
 		select {
 		case update := <-updates:
 			if update.Message == nil {
-				continue
 				log.Printf("Out message nil")
+				continue
 			}
 
 			messageText := update.Message.Text
