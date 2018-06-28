@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"testing"
 )
@@ -27,6 +28,28 @@ func Test_getListAbiturient(t *testing.T) {
 			//			if !reflect.DeepEqual(got, tt.want) {
 			//				t.Errorf("getListAbiturient() = %v, want %v", got, tt.want)
 			//			}
+		})
+	}
+}
+
+func Test_getStatusAbiturient(t *testing.T) {
+	tests := []struct {
+		name    string
+		want    *StatusAbiturienta
+		wantErr bool
+	}{
+	// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getStatusAbiturient()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getStatusAbiturient() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getStatusAbiturient() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
