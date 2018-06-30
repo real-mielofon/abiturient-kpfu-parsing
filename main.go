@@ -184,7 +184,8 @@ func tgBotCommandList(bot *telegram.Bot, messageChatID int64) {
 		}
 		err = t.Execute(&b, arr[inter*20:last])
 		if err != nil {
-			log.Panic(err)
+			log.Printf("Error!!!: %v", err)
+			return
 		}
 
 		text := b.String()
@@ -197,7 +198,8 @@ func tgBotCommandList(bot *telegram.Bot, messageChatID int64) {
 
 		_, err := bot.SendMessage(msg)
 		if err != nil {
-			log.Panic(err)
+			log.Printf("Error!!!: %v", err)
+			return
 		}
 	}
 }
