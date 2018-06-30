@@ -19,7 +19,7 @@ import (
 const (
 	urlList            = "https://abiturient.kpfu.ru/entrant/abit_entrant_originals_list?p_open=&p_typeofstudy=1&p_faculty=47&p_speciality=1085&p_inst=0&p_category=1"
 	nameFindAbiturient = "Пономарев Степан Алексеевич"
-	periodUpdate       = 10 * time.Minute
+	periodUpdate       = 30 * time.Minute
 	fileConfig         = "./data/subscribe.txt"
 )
 
@@ -188,6 +188,9 @@ func tgBotCommandList(bot *telegram.Bot, messageChatID int64) {
 		}
 
 		text := b.String()
+		if text == "" {
+			text = "Empty :-("
+		}
 		msg := telegram.NewMessage(messageChatID, text)
 		msg.ParseMode = "html"
 		//				msg.ReplyToMessageID = update.Message.ID
@@ -340,8 +343,12 @@ func main() {
 				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			}
 		case <-ticker.C:
-			tgBotCommandSendChangeStatus(bot, config)
-			log.Printf("Out Change Ok")
+			now := time.Now()
+			hour := now.Hour()
+			if (hour >= 8) && (hour <= 21) {
+				tgBotCommandSendChangeStatus(bot, config)
+				log.Printf("Out Change Ok")
+			}
 		}
 	}
 }
