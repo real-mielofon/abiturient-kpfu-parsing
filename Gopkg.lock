@@ -20,6 +20,12 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/go-errors/errors"
+  packages = ["."]
+  revision = "a6af135bd4e28680facf08a3d206b454abc877a4"
+  version = "v1.0.1"
+
+[[projects]]
   branch = "master"
   name = "github.com/kirillDanshin/dlog"
   packages = ["."]
@@ -116,6 +122,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c8358935f5161514de891cd9d029031bfcdab2442010682513b5c15417021f14"
+  inputs-digest = "29d8c940e5be48ba49b1f9d96d58c519b5e1db8a2457c9a851d9831af579c6b6"
   solver-name = "gps-cdcl"
   solver-version = 1
