@@ -7,12 +7,13 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"log"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/go-errors/errors"
+	"github.com/txgruppi/werr"
 	"gitlab.com/toby3d/telegram"
 	"golang.org/x/net/html/charset"
 )
@@ -27,6 +28,17 @@ const (
 func _check(err error) {
 	if err != nil {
 		panic(err)
+	}
+}
+
+func _log(err error, message string, v ...interface{}) {
+	log.Println(err)
+	log.Println(fmt.Sprintf(message, v...))     // Return the original error message
+	if wrapped, ok := err.(*werr.Wrapper); ok { // Try to convert to `*werr.Wrapper`
+		lg, _ := wrapped.Log() // Generate the log message
+		for _, line := range strings.Split(lg, "\n") {
+			log.Println(line) // Print the log message
+		}
 	}
 }
 
@@ -47,8 +59,9 @@ type StatusAbiturienta struct {
 func getStatusAbiturient() (*StatusAbiturienta, error) {
 	arr, err := getListAbiturient()
 	if err != nil {
-		return nil, err
+		return nil, werr.Wrap(err)
 	}
+
 	status := StatusAbiturienta{Num: 0, NumWithOriginal: 0}
 	for _, ab := range arr {
 		if ab.Fio == nameFindAbiturient {
@@ -69,22 +82,19 @@ func getListAbiturient() ([]Abiturient, error) {
 
 	resp, err := cl.Get(urlList)
 	if err != nil {
-		log.Println("HTTP error:", err, err.(*errors.Error).ErrorStack())
-		return nil, fmt.Errorf("HTTP error: %v", err)
+		return nil, werr.Wrap(err)
 	}
 
 	defer resp.Body.Close()
 	// вот здесь и начинается самое интересное
 	utf8, err := charset.NewReader(resp.Body, resp.Header.Get("Content-Type"))
 	if err != nil {
-		log.Println("Encoding error:", err, err.(*errors.Error).ErrorStack())
-		return nil, fmt.Errorf("HTTP error: %v", err)
+		return nil, werr.Wrap(err)
 	}
 
 	doc, err := goquery.NewDocumentFromReader(utf8)
 	if err != nil {
-		log.Println("goquery.NewDocumentFromReader:", err, err.(*errors.Error).ErrorStack())
-		return nil, fmt.Errorf("goquery.NewDocumentFromReader: %v", err)
+		return nil, werr.Wrap(err)
 	}
 
 	//fmt.Printf("doc: %+v \n", doc.Text())
@@ -109,8 +119,7 @@ func getListAbiturient() ([]Abiturient, error) {
 		s := tds.Eq(0).Text()
 		num, err := strconv.ParseInt(s, 10, 32)
 		if err != nil {
-			log.Printf("strconv.ParseInt(%s), %v, %s\n", s, err, err.(*errors.Error).ErrorStack())
-			return nil, fmt.Errorf("strconv.ParseInt(tds.Eq(0).Text(): %v", err)
+			return nil, werr.Wrap(err)
 		}
 		ab.Num = int(num)
 
@@ -119,7 +128,6 @@ func getListAbiturient() ([]Abiturient, error) {
 		s = tds.Eq(2).Text()
 		num, err = strconv.ParseInt(s, 10, 32)
 		if err != nil {
-			//			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
 			ab.Points[0] = 0
 		} else {
 			ab.Points[0] = int(num)
@@ -127,7 +135,6 @@ func getListAbiturient() ([]Abiturient, error) {
 
 		num, err = strconv.ParseInt(tds.Eq(3).Text(), 10, 32)
 		if err != nil {
-			//			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
 			ab.Points[1] = 0
 		} else {
 			ab.Points[1] = int(num)
@@ -135,7 +142,6 @@ func getListAbiturient() ([]Abiturient, error) {
 
 		num, err = strconv.ParseInt(tds.Eq(4).Text(), 10, 32)
 		if err != nil {
-			//			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
 			ab.Points[2] = 0
 		} else {
 			ab.Points[2] = int(num)
@@ -143,7 +149,6 @@ func getListAbiturient() ([]Abiturient, error) {
 
 		num, err = strconv.ParseInt(tds.Eq(5).Text(), 10, 32)
 		if err != nil {
-			//			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
 			ab.Points[3] = 0
 		} else {
 			ab.Points[3] = int(num)
@@ -151,31 +156,30 @@ func getListAbiturient() ([]Abiturient, error) {
 
 		num, err = strconv.ParseInt(tds.Eq(6).Text(), 10, 32)
 		if err != nil {
-			//			log.Printf("strconv.ParseInt(%s), %v\n", s, err)
 			ab.Points[4] = ab.Points[0] + ab.Points[1] + ab.Points[2] + ab.Points[3]
 		} else {
 			ab.Points[4] = int(num)
 		}
 
 		arr[i-1] = ab
-
-		//		log.Printf("%4d %40s %3d %s\n", ab.Num, ab.Fio, ab.Points[4], strconv.FormatBool(ab.Original))
 	}
 	return arr, nil
 }
 
 func tgBotCommandList(bot *telegram.Bot, messageChatID int64) {
 	arr, err := getListAbiturient()
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error!!!: %v %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "getListAbiturient()")
 		return
 	}
 
 	t := template.New("abiturients list")
 
 	t, err = t.Parse(`{{range .}}<pre>{{if eq .Fio "` + nameFindAbiturient + `"}}>>>{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}{{printf "%3d" .Num}} {{printf "%40s" .Fio}} {{index .Points 4|printf "%3d"}}{{if eq .Fio "` + nameFindAbiturient + `"}}<<<{{else}}{{if .Original}} * {{else}}   {{end}}{{end}}</pre>{{printf "\n"}}{{end}}`)
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error getStatus!!!: %v, %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "t.Parse")
 		return
 	}
 
@@ -186,8 +190,9 @@ func tgBotCommandList(bot *telegram.Bot, messageChatID int64) {
 			last = len(arr)
 		}
 		err = t.Execute(&b, arr[inter*20:last])
+		err = werr.Wrap(err)
 		if err != nil {
-			log.Printf("Error!!!: %v, %s", err, err.(*errors.Error).ErrorStack())
+			_log(err, "t.Execute(%+v, %+v)", &b, arr[inter*20:last])
 			return
 		}
 
@@ -197,11 +202,11 @@ func tgBotCommandList(bot *telegram.Bot, messageChatID int64) {
 		}
 		msg := telegram.NewMessage(messageChatID, text)
 		msg.ParseMode = "html"
-		//				msg.ReplyToMessageID = update.Message.ID
 
 		_, err := bot.SendMessage(msg)
+		err = werr.Wrap(err)
 		if err != nil {
-			log.Printf("Error!!!: %v, %s", err, err.(*errors.Error).ErrorStack())
+			_log(err, "bot.SendMessage (%+v)", msg)
 			return
 		}
 	}
@@ -209,8 +214,9 @@ func tgBotCommandList(bot *telegram.Bot, messageChatID int64) {
 
 func tgBotCommandStatWithGetStatus(bot *telegram.Bot, messageChatID int64) {
 	status, err := getStatusAbiturient()
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error getStatus!!!: %v, %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "getStatusAbiturient()")
 		return
 	}
 	tgBotCommandStat(bot, messageChatID, status)
@@ -221,26 +227,28 @@ func tgBotCommandStat(bot *telegram.Bot, messageChatID int64, status *StatusAbit
 	t := template.New("abiturients status")
 
 	t, err := t.Parse("Абитуриент *" + nameFindAbiturient + "*\nПерсональный рейтинг: *{{.Num}}*\nПерсональный рейтинг по оригиналам: *{{.NumWithOriginal}}*")
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error: %v, %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "t.Parse")
 		return
 	}
 
 	var b bytes.Buffer
 	err = t.Execute(&b, status)
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error: %v, %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "t.Execute(%+v, %+v)", &b, status)
 		return
 	}
 
 	text := b.String()
 	msg := telegram.NewMessage(messageChatID, text)
 	msg.ParseMode = "markdown"
-	//			msg.ReplyToMessageID = update.Message.ID
 
 	_, err = bot.SendMessage(msg)
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error: %v, %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "bot.SendMessage(%+v)", msg)
 		return
 	}
 }
@@ -253,11 +261,11 @@ func tgBotCommandSubscribe(bot *telegram.Bot, config *ConfigType, messageChatID 
 	text := "Subscribed"
 	msg := telegram.NewMessage(messageChatID, text)
 	msg.ParseMode = "html"
-	//			msg.ReplyToMessageID = update.Message.ID
 
 	_, err := bot.SendMessage(msg)
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error: %v, %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "bot.SendMessage(%+v)", msg)
 		return
 	}
 }
@@ -273,8 +281,9 @@ func tgBotCommandUnSubscribe(bot *telegram.Bot, config *ConfigType, messageChatI
 	//			msg.ReplyToMessageID = update.Message.ID
 
 	_, err := bot.SendMessage(msg)
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error: %v, %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "bot.SendMessage(%+v)", msg)
 		return
 	}
 }
@@ -287,16 +296,18 @@ func tgBotCommandPing(bot *telegram.Bot, messageChatID int64) {
 	//			msg.ReplyToMessageID = update.Message.ID
 
 	_, err := bot.SendMessage(msg)
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error: %v, %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "bot.SendMessage(%+v)", msg)
 		return
 	}
 }
 
 func tgBotCommandSendChangeStatus(bot *telegram.Bot, config *ConfigType) {
 	status, err := getStatusAbiturient()
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error: %v, %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "getStatusAbiturient()")
 		return
 	}
 	if (status.Num == config.status.Num) && (status.NumWithOriginal == config.status.NumWithOriginal) {
@@ -321,8 +332,9 @@ func main() {
 	config.ReadConfig()
 
 	bot, err := telegram.New(env)
+	err = werr.Wrap(err)
 	if err != nil {
-		log.Printf("Error: %v, %s", err, err.(*errors.Error).ErrorStack())
+		_log(err, "telegram.New(%+v)", env)
 		return
 	}
 

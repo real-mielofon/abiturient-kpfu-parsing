@@ -40,3 +40,11 @@
 [[constraint]]
   name = "github.com/go-errors/errors"
   version = "1.0.1"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/palantir/stacktrace"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/txgruppi/werr"

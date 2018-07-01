@@ -20,12 +20,6 @@
   version = "v1.1.0"
 
 [[projects]]
-  name = "github.com/go-errors/errors"
-  packages = ["."]
-  revision = "a6af135bd4e28680facf08a3d206b454abc877a4"
-  version = "v1.0.1"
-
-[[projects]]
   branch = "master"
   name = "github.com/kirillDanshin/dlog"
   packages = ["."]
@@ -62,6 +56,12 @@
     "fflib/v1/internal"
   ]
   revision = "d49c2bc1aa135aad0c6f4fc2056623ec78f5d5ac"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/txgruppi/werr"
+  packages = ["."]
+  revision = "5a1027ff30f94c5cfbcf6b955e98a8266d3379f4"
 
 [[projects]]
   branch = "master"
@@ -122,6 +122,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2e1ececcd4effd5fcf51c2868e8b4dc768a47d503fc33a4a33acd7f1947a1386"
+  inputs-digest = "cb49d99a4d726175ae678df2b7e758f40a5f5ed7d5668ba26f41dcd59e7bf1d1"
   solver-name = "gps-cdcl"
   solver-version = 1
