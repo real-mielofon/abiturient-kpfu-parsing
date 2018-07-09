@@ -8,14 +8,16 @@ import (
 func TestConfigType_WriteConfig(t *testing.T) {
 	tests := []struct {
 		name    string
-		c       *ConfigType
+		c       *Config
 		wantErr bool
 	}{
-		{
-			name:    "test1",
-			c:       &ConfigType{chats: map[int64]int{0: 0, 1: 0}, status: StatusAbiturienta{30, 6}},
-			wantErr: false,
+		name: "test1",
+		c: &Config{chats: map[int64]StatusByName{
+			0: StatusByName{Name: "Пономарев Степан Алексеевич", status: StatusAbiturienta{30, 6}},
+			1: StatusByName{Name: "Иванов Иван Иванович", status: StatusAbiturienta{0, 1}},
 		},
+		},
+		wantErr: false,
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -29,14 +31,27 @@ func TestConfigType_WriteConfig(t *testing.T) {
 func TestConfigType_ReadConfig(t *testing.T) {
 	tests := []struct {
 		name    string
-		c       *ConfigType
-		want    *ConfigType
+		c       *Config
+		want    *Config
 		wantErr bool
 	}{
 		{
-			name:    "test1",
-			c:       &ConfigType{chats: map[int64]int{}, status: StatusAbiturienta{0, 0}},
-			want:    &ConfigType{chats: map[int64]int{0: 0, 1: 0}, status: StatusAbiturienta{30, 6}},
+			name: "test2",
+			c:    &Config{chats: map[int64]int{}, status: StatusAbiturienta{0, 0}},
+			want: &Config{
+				chats: map[int64]StatusByName{
+					0: {name: "Пономарёв Степан Алексеевич", status: StatusAbiturienta{30, 6}},
+					1: {name: "Иванов Иван Иванович", status: StatusAbiturienta{10, 5}},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "test0",
+			c:    &Config{chats: map[int64]int{}, status: StatusAbiturienta{0, 0}},
+			want: &Config{
+				chats: map[int64]StatusByName{},
+			},
 			wantErr: false,
 		},
 	}

@@ -1,25 +1,23 @@
 package main
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 )
 
 // ConfigType its write to config
-type ConfigType struct {
-	chats  map[int64]int
-	status StatusAbiturienta
+type Config struct {
+	chats map[int64]StatusByName
 }
 
 // readLines reads a whole file into memory
 // and returns a slice of its lines.
 
 // ReadConfig read config
-func (c *ConfigType) ReadConfig() error {
-	c.chats = make(map[int64]int)
+func (c *Config) ReadConfig() error {
+	c.chats = make(map[int64]StatusByName)
 
 	file, err := os.Open(fileConfig)
 	if err != nil {
@@ -28,47 +26,18 @@ func (c *ConfigType) ReadConfig() error {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	if !scanner.Scan() {
-		return scanner.Err()
-	}
-	n, err := strconv.ParseInt(scanner.Text(), 10, 32)
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&c)
 	if err != nil {
+		fmt.Println("error:", err)
 		return err
 	}
-	len := int(n)
-	for i := 0; i < len; i++ {
-		if !scanner.Scan() {
-			return scanner.Err()
-		}
-		n, err := strconv.ParseInt(scanner.Text(), 10, 32)
-		if err != nil {
-			return err
-		}
-		c.chats[n] = 0
-	}
-	if !scanner.Scan() {
-		return scanner.Err()
-	}
-	n, err = strconv.ParseInt(scanner.Text(), 10, 32)
-	if err != nil {
-		return err
-	}
-	c.status.Num = int(n)
-	if !scanner.Scan() {
-		return scanner.Err()
-	}
-	n, err = strconv.ParseInt(scanner.Text(), 10, 32)
-	if err != nil {
-		return err
-	}
-	c.status.NumWithOriginal = int(n)
+	fmt.Println(c) // output: [UserA, UserB]
 	return nil
-
 }
 
 // WriteConfig write config
-func (c *ConfigType) WriteConfig() error {
+func (c *Config) WriteConfig() error {
 
 	file, _ := os.OpenFile(fileConfig, os.O_WRONLY, 0666)
 	//    if err != nil {
@@ -77,18 +46,15 @@ func (c *ConfigType) WriteConfig() error {
 	//}
 	defer file.Close()
 
-	w := bufio.NewWriter(file)
-	fmt.Fprintf(w, "%d\n", len(c.chats))
-	for key := range c.chats {
-		fmt.Fprintf(w, "%d\n", key)
+	encoder := json.NewEncoder(file)
+	err := encoder.Encode(&c)
+	if err != nil {
+		fmt.Println("error:", err)
+		return err
 	}
-	fmt.Fprintf(w, "%d\n", c.status.Num)
-	fmt.Fprintf(w, "%d\n", c.status.NumWithOriginal)
-	w.Flush()
 	return nil
 }
 
-// Add - add key
-func (c *ConfigType) Add(key int64) {
-	c.chats[key] = 0
+func (c *Config) Add(key int64, name string) {
+	c.chats[key] = StatusByName{Name: name, Status: StatusAbiturienta{Num:0, NumWithOriginal:0}}
 }

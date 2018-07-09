@@ -56,7 +56,12 @@ type StatusAbiturienta struct {
 	NumWithOriginal int
 }
 
-func getStatusAbiturient() (*StatusAbiturienta, error) {
+type StatusByName struct {
+	Name   string
+	Status StatusAbiturienta
+}
+
+func getStatusAbiturient(name string) (*StatusAbiturienta, error) {
 	arr, err := getListAbiturient()
 	if err != nil {
 		return nil, werr.Wrap(err)
@@ -212,8 +217,10 @@ func tgBotCommandList(bot *telegram.Bot, messageChatID int64) {
 	}
 }
 
-func tgBotCommandStatWithGetStatus(bot *telegram.Bot, messageChatID int64) {
-	status, err := getStatusAbiturient()
+func tgBotCommandStatWithGetStatus(bot *telegram.Bot, messageChatID int64, config *Config) {
+	name := config.chats[messageChatID].Name
+
+	status, err := getStatusAbiturient(name)
 	err = werr.Wrap(err)
 	if err != nil {
 		_log(err, "getStatusAbiturient()")
@@ -253,12 +260,12 @@ func tgBotCommandStat(bot *telegram.Bot, messageChatID int64, status *StatusAbit
 	}
 }
 
-func tgBotCommandSubscribe(bot *telegram.Bot, config *ConfigType, messageChatID int64) {
+func tgBotCommandSubscribe(bot *telegram.Bot, config *Config, messageChatID int64, abiturientName string) {
 
-	config.Add(messageChatID)
+	config.Add(messageChatID, abiturientName)
 	config.WriteConfig()
 
-	text := "Subscribed"
+	text := "Subscribed for " + abiturientName
 	msg := telegram.NewMessage(messageChatID, text)
 	msg.ParseMode = "html"
 
@@ -270,7 +277,7 @@ func tgBotCommandSubscribe(bot *telegram.Bot, config *ConfigType, messageChatID 
 	}
 }
 
-func tgBotCommandUnSubscribe(bot *telegram.Bot, config *ConfigType, messageChatID int64) {
+func tgBotCommandUnSubscribe(bot *telegram.Bot, config *Config, messageChatID int64) {
 
 	delete(config.chats, messageChatID)
 	config.WriteConfig()
@@ -303,24 +310,26 @@ func tgBotCommandPing(bot *telegram.Bot, messageChatID int64) {
 	}
 }
 
-func tgBotCommandSendChangeStatus(bot *telegram.Bot, config *ConfigType) {
-	status, err := getStatusAbiturient()
-	err = werr.Wrap(err)
-	if err != nil {
+func tgBotCommandSendChangeStatus(bot *telegram.Bot, config *Config) {
+	for key, status := range config {
+		status, err := getStatusAbiturient()
+		err = werr.Wrap(err)
+		if err != nil {
 		_log(err, "getStatusAbiturient()")
 		return
-	}
-	if (status.Num == config.status.Num) && (status.NumWithOriginal == config.status.NumWithOriginal) {
-		// no change exit
-		return
-	}
-
-	config.status.Num = status.Num
-	config.status.NumWithOriginal = status.NumWithOriginal
-	config.WriteConfig()
-
-	for key := range config.chats {
-		tgBotCommandStat(bot, key, status)
+		}
+		if (status.Num == config.Status.Num) && (status.NumWithOriginal == config.Status.NumWithOriginal) {
+			// no change exit
+			return
+		}
+	
+		config.status.Num = status.Num
+		config.status.NumWithOriginal = status.NumWithOriginal
+		config.WriteConfig()
+	
+		for key := range config.chats {
+			tgBotCommandStat(bot, key, status)
+		}
 	}
 }
 
@@ -370,12 +379,13 @@ func main() {
 				tgBotCommandList(bot, messageChatID)
 				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			case (messageText == "/status") || (messageText == "/s"):
-				tgBotCommandStatWithGetStatus(bot, messageChatID)
+				tgBotCommandStatWithGetStatus(bot, messageChatID, config)
 				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
-			case (messageText == "/subscribe") || (messageText == "/sub"):
-				tgBotCommandSubscribe(bot, config, messageChatID)
+			case strings.HasPrefix(messageText, "/subscribe"):
+				abiturientName := strings.TrimPrefix(messageText, "/subscribe"+" ")
+				tgBotCommandSubscribe(bot, config, messageChatID, abiturientName)
 				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
-			case (messageText == "/unsubscribe") || (messageText == "/uns"):
+			case (messageText == "/unsubscribe"):
 				tgBotCommandUnSubscribe(bot, config, messageChatID)
 				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			case (messageText == "/ping") || (messageText == "/p"):
