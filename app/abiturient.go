@@ -1,4 +1,14 @@
-package main
+package app
+
+import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/txgruppi/werr"
+	"golang.org/x/net/html/charset"
+)
 
 //Abiturient is struct data of abiturient
 type Abiturient struct {
@@ -8,44 +18,45 @@ type Abiturient struct {
 	Original bool
 }
 
-type ListAbiturents struct{
-    arr []Abiturient
-    }
-
-func (l ListAbiturents) get() []Abiturient {
-    if Length(l.arr) < 0 {
-        l.fetchListAbiturient()
-    }
-    return l.arr
+type ListAbiturents struct {
+	arr []Abiturient
 }
-   
 
-func (l ListAbiturents) fetchListAbiturient() (error) {
+func (l ListAbiturents) Get() ([]Abiturient, error) {
+	if len(l.arr) < 0 {
+		err := l.FetchListAbiturient()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return l.arr, nil
+}
+func (l ListAbiturents) FetchListAbiturient() error {
 	var cl = &http.Client{}
 	cl.Timeout = 60 * time.Second
 
 	resp, err := cl.Get(urlList)
 	if err != nil {
-		return nil, werr.Wrap(err)
+		return werr.Wrap(err)
 	}
 
 	defer resp.Body.Close()
 	// вот здесь и начинается самое интересное
 	utf8, err := charset.NewReader(resp.Body, resp.Header.Get("Content-Type"))
 	if err != nil {
-		return nil, werr.Wrap(err)
+		return werr.Wrap(err)
 	}
 
 	doc, err := goquery.NewDocumentFromReader(utf8)
 	if err != nil {
-		return nil, werr.Wrap(err)
+		return werr.Wrap(err)
 	}
 
 	//fmt.Printf("doc: %+v \n", doc.Text())
 
 	trs := doc.Find("tbody").Eq(1).Find("tr")
 	len := trs.Length()
-	l.arr := make([]Abiturient, len-1)
+	l.arr = make([]Abiturient, len-1)
 
 	//	fmt.Printf("len: %+v \n", len)
 	for i := 1; i < len; i++ {
@@ -63,7 +74,7 @@ func (l ListAbiturents) fetchListAbiturient() (error) {
 		s := tds.Eq(0).Text()
 		num, err := strconv.ParseInt(s, 10, 32)
 		if err != nil {
-			return nil, werr.Wrap(err)
+			return werr.Wrap(err)
 		}
 		ab.Num = int(num)
 
