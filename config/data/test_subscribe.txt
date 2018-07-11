@@ -1,0 +1,2 @@
+{"Chats":{"0":{"Name":"Пономарев Степан Алексеевич","Status":{"Num":30,"NumWithOriginal":6}},"1":{"Name":"Иванов Иван Иванович","Status":{"Num":0,"NumWithOriginal":1}}}}
+

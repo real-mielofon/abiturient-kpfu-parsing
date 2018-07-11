@@ -228,7 +228,7 @@ func (app App) SendHTML(chatID int64, text string) {
 }
 func (app App) Send(chatID int64, text string, parseMode string) {
 	msg := telegram.NewMessage(chatID, text)
-	msg.ParseMode = "parseMode"
+	msg.ParseMode = parseMode
 
 	_, err := app.bot.SendMessage(msg)
 	err = werr.Wrap(err)
