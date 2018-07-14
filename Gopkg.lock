@@ -48,6 +48,12 @@
   version = "v1.1"
 
 [[projects]]
+  name = "github.com/kpango/glg"
+  packages = ["."]
+  revision = "cb0c8857f1215695015b871c1a877874f81878b0"
+  version = "v1.2.1"
+
+[[projects]]
   branch = "master"
   name = "github.com/pquerna/ffjson"
   packages = [
@@ -122,6 +128,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "931ace2917b538e246f8be928683113343c6132df94f42e1a1e5c74385d18fc0"
+  inputs-digest = "3916d42ad5b6997f0bc20936f140998bc63ebb5b04d8de630f0d79ee167a9b9b"
   solver-name = "gps-cdcl"
   solver-version = 1

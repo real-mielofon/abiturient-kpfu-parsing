@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kpango/glg"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/txgruppi/werr"
 	"golang.org/x/net/html/charset"
@@ -22,16 +24,21 @@ type ListAbiturents struct {
 	arr []Abiturient
 }
 
-func (l ListAbiturents) Get() ([]Abiturient, error) {
-	if len(l.arr) < 0 {
+func (l *ListAbiturents) Get() ([]Abiturient, error) {
+	if len(l.arr) <= 0 {
 		err := l.FetchListAbiturient()
 		if err != nil {
+			glg.Error("ListAbiturents.Get = %+v", err)
 			return nil, err
+		} else {
+			glg.Debug("ListAbiturents.Get fetch ok= %+v", l.arr)
 		}
+	} else {
+		glg.Debug("ListAbiturents.Get = %+v", l.arr)
 	}
 	return l.arr, nil
 }
-func (l ListAbiturents) FetchListAbiturient() error {
+func (l *ListAbiturents) FetchListAbiturient() error {
 	var cl = &http.Client{}
 	cl.Timeout = 60 * time.Second
 
@@ -52,14 +59,14 @@ func (l ListAbiturents) FetchListAbiturient() error {
 		return werr.Wrap(err)
 	}
 
-	//fmt.Printf("doc: %+v \n", doc.Text())
+	//	glg.Debug("doc: %+v \n", doc.Text())
 
 	trs := doc.Find("tbody").Eq(1).Find("tr")
-	len := trs.Length()
-	l.arr = make([]Abiturient, len-1)
+	length := trs.Length()
+	l.arr = make([]Abiturient, length-1)
 
-	//	fmt.Printf("len: %+v \n", len)
-	for i := 1; i < len; i++ {
+	glg.Debug("len: %d", length)
+	for i := 1; i < length; i++ {
 
 		tr := trs.Eq(i)
 		tds := tr.Find("td")
@@ -118,5 +125,6 @@ func (l ListAbiturents) FetchListAbiturient() error {
 
 		l.arr[i-1] = ab
 	}
+	glg.Debug("len: %d", len(l.arr))
 	return nil
 }

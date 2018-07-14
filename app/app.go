@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/real-mielofon/abiturient-kpfu-parsing/config"
 	"github.com/real-mielofon/abiturient-kpfu-parsing/status"
 
+	"github.com/kpango/glg"
 	"github.com/txgruppi/werr"
 	"gitlab.com/toby3d/telegram"
 )
@@ -21,12 +21,12 @@ const (
 )
 
 func _log(err error, message string, v ...interface{}) {
-	log.Println(err)
-	log.Println(fmt.Sprintf(message, v...))     // Return the original error message
+	glg.Info(err)
+	glg.Info(fmt.Sprintf(message, v...))        // Return the original error message
 	if wrapped, ok := err.(*werr.Wrapper); ok { // Try to convert to `*werr.Wrapper`
 		lg, _ := wrapped.Log() // Generate the log message
 		for _, line := range strings.Split(lg, "\n") {
-			log.Println(line) // Print the log message
+			glg.Info(line) // Print the log message
 		}
 	}
 }
@@ -54,7 +54,7 @@ func (app App) Run() {
 		return
 	}
 	app.bot = bot
-	log.Printf("Authorized on account %s", app.bot.Username)
+	glg.Info("Authorized on account %s", app.bot.Username)
 
 	updatesParameters := &telegram.GetUpdatesParameters{
 		Offset:  0,
@@ -71,7 +71,7 @@ func (app App) Run() {
 		select {
 		case update := <-updates:
 			if update.Message == nil {
-				log.Printf("Out message nil")
+				glg.Info("Out message nil")
 				continue
 			}
 
@@ -79,34 +79,34 @@ func (app App) Run() {
 			messageUserName := update.Message.From.Username
 			messageChatID := update.Message.Chat.ID
 
-			log.Printf("In  [%s] id:%d %s", messageUserName, messageChatID, messageText)
+			glg.Info("In  [%s] id:%d %s", messageUserName, messageChatID, messageText)
 
 			switch {
 			case (messageText == "/list") || (messageText == "/l"):
 				app.tgBotCommandList(messageChatID)
-				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+				glg.Info("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			case (messageText == "/status") || (messageText == "/s"):
 				app.tgBotCommandStatWithGetStatus(messageChatID)
-				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+				glg.Info("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			case strings.HasPrefix(messageText, "/subscribe"):
 				abiturientName := strings.TrimPrefix(messageText, "/subscribe"+" ")
 				app.tgBotCommandSubscribe(messageChatID, abiturientName)
-				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+				glg.Info("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			case (messageText == "/unsubscribe"):
 				app.tgBotCommandUnSubscribe(messageChatID)
-				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+				glg.Info("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			case (messageText == "/ping") || (messageText == "/p"):
 				app.tgBotCommandPing(messageChatID)
-				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+				glg.Info("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			default:
-				log.Printf("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
+				glg.Info("Out [%s] id:%d text:%s Ok", messageUserName, messageChatID, messageText)
 			}
 		case <-ticker.C:
 			now := time.Now()
 			hour := now.Hour()
 			if (hour >= 8) && (hour <= 21) {
 				app.tgBotCommandSendChangeStatus()
-				log.Printf("Out Change Ok")
+				glg.Info("Out Change Ok")
 			}
 		}
 	}
@@ -153,6 +153,7 @@ func (app App) tgBotCommandList(messageChatID int64) {
 		return
 	}
 
+	glg.Debug(fmt.Sprintf("len  = %d", len(arr)))
 	for inter := 0; inter < len(arr)/20+1; inter++ {
 		var b bytes.Buffer
 		last := inter*20 + 20
@@ -180,6 +181,8 @@ func (app App) tgBotCommandStatWithGetStatus(messageChatID int64) {
 	if !found {
 		app.SendText(messageChatID, "No subscribe")
 		return
+	} else {
+		glg.Debug("statusByName = %+v", statusByName)
 	}
 	name := statusByName.Name
 
